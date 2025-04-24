@@ -23,7 +23,7 @@ Please cite our work if the code is helpful to you.
 
 import os
 from packaging import version
-from huggingface_hub import PyTorchModelHubMixin
+from huggingface_hub import hf_hub_download, PyTorchModelHubMixin
 from addict import Dict
 import torch
 import torch.nn as nn
@@ -42,7 +42,11 @@ from .structure import Point
 from .module import PointSequential, PointModule
 from .utils import offset2bincount
 
-MODELS = ["facebook/sonata"]
+MODELS = [
+    "sonata",
+    "sonata_small",
+    "sonata_linear_prob_head_sc",
+]
 
 
 class LayerScale(nn.Module):
@@ -752,34 +756,40 @@ class PointTransformerV3(PointModule, PyTorchModelHubMixin):
 
 
 def load(
-    name: str = "facebook/sonata",
+    name: str = "sonata",
+    repo_id="facebook/sonata",
     download_root: str = None,
     custom_config: dict = None,
+    ckpt_only: bool = False,
 ):
     if name in MODELS:
         print(f"Loading checkpoint from HuggingFace: {name} ...")
-        if custom_config is None:
-            custom_config = {}
-        model = PointTransformerV3.from_pretrained(
-            name,
-            cache_dir=download_root,
-            **custom_config,
+        ckpt_path = hf_hub_download(
+            repo_id=repo_id,
+            filename=f"{name}.pth",
+            repo_type="model",
+            revision="main",
+            local_dir=download_root or os.path.expanduser("~/.cache/sonata/ckpt"),
         )
     elif os.path.isfile(name):
         print(f"Loading checkpoint in local path: {name} ...")
         ckpt_path = name
-        if version.parse(torch.__version__) >= version.parse("2.4"):
-            ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-        else:
-            ckpt = torch.load(ckpt_path, map_location="cpu")
-        if custom_config is not None:
-            for key, value in custom_config.items():
-                ckpt["config"][key] = value
-
-        model = PointTransformerV3(**ckpt["config"])
-        model.load_state_dict(ckpt["state_dict"])
     else:
         raise RuntimeError(f"Model {name} not found; available models = {MODELS}")
+
+    if version.parse(torch.__version__) >= version.parse("2.4"):
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    else:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+    if custom_config is not None:
+        for key, value in custom_config.items():
+            ckpt["config"][key] = value
+
+    if ckpt_only:
+        return ckpt
+
+    model = PointTransformerV3(**ckpt["config"])
+    model.load_state_dict(ckpt["state_dict"])
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model params: {n_parameters / 1e6:.2f}M")
     return model

@@ -41,13 +41,15 @@ if __name__ == "__main__":
     sonata.utils.set_seed(24525867)
     # Load model
     if flash_attn is not None:
-        model = sonata.load("facebook/sonata").cuda()
+        model = sonata.load("sonata", repo_id="facebook/sonata").cuda()
     else:
         custom_config = dict(
             enc_patch_size=[1024 for _ in range(5)],  # reduce patch size if necessary
             enable_flash=False,
         )
-        model = sonata.load("facebook/sonata", custom_config=custom_config).cuda()
+        model = sonata.load(
+            "sonata", repo_id="facebook/sonata", custom_config=custom_config
+        ).cuda()
     # Load default data transform pipline
     transform = sonata.transform.default()
     # Load data

@@ -60,6 +60,7 @@ This repo provide two ways of installation: **standalone mode** and **package mo
   export PYTHONPATH=./
   python demo/0_pca.py
   python demo/1_similarity.py
+  python demo/2_sem_seg.py  # linear probed head on ScanNet 
   ```
 
 <div align='left'>
@@ -125,7 +126,7 @@ This repo provide two ways of installation: **standalone mode** and **package mo
   # Load the pre-trained model from Huggingface
   # supported models: "sonata"
   # ckpt is cached in ~/.cache/sonata/ckpt, and the path can be customized by setting 'download_root'
-  model = sonata.model.load("facebook/sonata").cuda()
+  model = sonata.model.load("sonata", repo_id="facebook/sonata").cuda()
   
   # or
   from sonata.model import PointTransformerV3
@@ -143,7 +144,7 @@ This repo provide two ways of installation: **standalone mode** and **package mo
       enc_patch_size=[1024 for _ in range(5)],
       enable_flash=False,  # reduce patch size if necessary
   )
-  model = sonata.load("facebook/sonata", custom_config=custom_config).cuda()
+  model = sonata.load("sonata", repo_id="facebook/sonata", custom_config=custom_config).cuda()
   # or
   from sonata.model import PointTransformerV3
   model = PointTransformerV3.from_pretrained("facebook/sonata", **custom_config).cuda()
