@@ -24,13 +24,15 @@ except ImportError:
     flash_attn = None
 
 
-def get_pca_color(feat, center=True):
-    u, s, v = torch.pca_lowrank(feat, center=center, q=3, niter=5)
+def get_pca_color(feat, brightness=1.25, center=True):
+    u, s, v = torch.pca_lowrank(feat, center=center, niter=5)
     projection = feat @ v
+    projection = projection[:, :3] * 0.6 + projection[:, 3:6] * 0.4
     min_val = projection.min(dim=-2, keepdim=True)[0]
     max_val = projection.max(dim=-2, keepdim=True)[0]
     div = torch.clamp(max_val - min_val, min=1e-6)
-    color = (projection - min_val) / div
+    color = (projection - min_val) / div * brightness
+    color = color.clamp(0.0, 1.0)
     return color
 
 
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     # set random seed
     # (random seed affect pca color, yet change random seed need manual adjustment kmeans)
     # (the pca prevent in paper is with another version of cuda and pytorch environment)
-    sonata.utils.set_seed(24525867)
+    sonata.utils.set_seed(53124)
     # Load model
     if flash_attn is not None:
         model = sonata.load("sonata", repo_id="facebook/sonata").cuda()
@@ -87,34 +89,14 @@ if __name__ == "__main__":
         _ = point.feat[point.inverse]
 
         # PCA
-        pca_color = get_pca_color(point.feat, center=True)
-
-        # Auto threshold with k-means
-        # (DINOv2 manually set threshold for separating background and foreground)
-        N_CLUSTERS = 3
-        kmeans = KMeans(
-            n_clusters=N_CLUSTERS,
-            mode="cosine",
-            max_iter=1000,
-            init_method="random",
-            tol=0.0001,
-        )
-
-        kmeans.fit(point.feat)
-        cluster = (
-            kmeans.cos_sim(point.feat, kmeans.centroids)
-            * torch.tensor([1, 1.12, 1]).cuda()
-        ).argmax(dim=-1)
-
-    pca_color_ = pca_color.clone()
-    pca_color_[cluster == 1] = get_pca_color(point.feat[cluster == 1], center=True)
+        pca_color = get_pca_color(point.feat, brightness=1.2, center=True)
 
     # inverse back to original scale before grid sampling
     # point.inverse is acquired from the GirdSampling transform
-    original_pca_color_ = pca_color_[point.inverse]
+    original_pca_color = pca_color[point.inverse]
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(original_coord)
-    pcd.colors = o3d.utility.Vector3dVector(original_pca_color_.cpu().detach().numpy())
+    pcd.colors = o3d.utility.Vector3dVector(original_pca_color.cpu().detach().numpy())
     o3d.visualization.draw_geometries([pcd])
     # or
     # o3d.visualization.draw_plotly([pcd])
