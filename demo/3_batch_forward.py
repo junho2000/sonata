@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import copy
 import open3d as o3d
 import sonata
 import torch
@@ -54,12 +55,17 @@ if __name__ == "__main__":
     # Load default data transform pipeline
     transform = sonata.transform.default()
     # Load data
-    point = sonata.data.load("sample1")
-    point.pop("segment200")
-    segment = point.pop("segment20")
-    point["segment"] = segment  # two kinds of segment exist in ScanNet, only use one
-    original_coord = point["coord"].copy()
-    point = transform(point)
+    point1 = sonata.data.load("sample1")
+    point1.pop("segment200")
+    segment = point1.pop("segment20")
+    point1["segment"] = segment  # two kinds of segment exist in ScanNet, only use one
+    original_coord = point1["coord"].copy()
+
+    point2 = copy.deepcopy(point1)
+
+    point1 = transform(point1)
+    point2 = transform(point2)
+    point = sonata.data.collate_fn([point1, point2])
 
     with torch.inference_mode():
         for key in point.keys():
@@ -83,24 +89,12 @@ if __name__ == "__main__":
             parent.feat = point.feat[inverse]
             point = parent
 
-        # here point is down-sampled by GridSampling in default transform pipeline
-        # feature of point cloud in original scale can be acquired by:
-        _ = point.feat[point.inverse]
-
         # PCA
         pca_color = get_pca_color(point.feat, brightness=1.2, center=True)
+        batched_coord = point.coord.clone()
+        batched_coord[:, 0] += point.batch * 8.0
 
-    # inverse back to original scale before grid sampling
-    # point.inverse is acquired from the GirdSampling transform
-    original_pca_color = pca_color[point.inverse]
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(original_coord)
-    pcd.colors = o3d.utility.Vector3dVector(original_pca_color.cpu().detach().numpy())
+    pcd.points = o3d.utility.Vector3dVector(batched_coord.cpu().detach().numpy())
+    pcd.colors = o3d.utility.Vector3dVector(pca_color.cpu().detach().numpy())
     o3d.visualization.draw_geometries([pcd])
-    # or
-    # o3d.visualization.draw_plotly([pcd])
-
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(point.coord.cpu().detach().numpy())
-    # pcd.colors = o3d.utility.Vector3dVector(pca_color_.cpu().detach().numpy())
-    # o3d.io.write_point_cloud("pca.ply", pcd)
