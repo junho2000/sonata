@@ -761,6 +761,7 @@ def load(
     download_root: str = None,
     custom_config: dict = None,
     ckpt_only: bool = False,
+    strict=True,
 ):
     if name in MODELS:
         print(f"Loading checkpoint from HuggingFace: {name} ...")
@@ -787,9 +788,15 @@ def load(
 
     if ckpt_only:
         return ckpt
+    
+    # PTV3 self.embedding layer
+    incompatible_keys = [k for k in ckpt["state_dict"].keys() if k.startswith('embedding.stem.linear')]
+    for key in incompatible_keys:
+        print(f"Skipping incompatible layer: {key}")
+        ckpt["state_dict"].pop(key)
 
     model = PointTransformerV3(**ckpt["config"])
-    model.load_state_dict(ckpt["state_dict"])
+    model.load_state_dict(ckpt["state_dict"], strict=strict)
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model params: {n_parameters / 1e6:.2f}M")
     return model
