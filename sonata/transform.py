@@ -46,6 +46,7 @@ def index_operator(data_dict, index, duplicate=False):
             "rotations",
             "opacities",
             "semantics",
+        
             "color",
             "normal",
             "strength",
@@ -127,7 +128,8 @@ class Update(object):
 
 @TRANSFORMS.register_module()
 class ToTensor(object):
-    def __call__(self, data):
+    def __call__(self, data, cuda=False):
+        data = data.cuda() if cuda else data
         if isinstance(data, torch.Tensor):
             return data
         elif isinstance(data, str):
@@ -1237,7 +1239,8 @@ def nuscenes():
             return_grid_coord=True,
             return_inverse=True,
         ),
-        dict(type="ToTensor"),
+        dict(type="ToTensor",
+             cuda=True),
         dict(
             type="Collect",
             keys=("coord", "inverse", "grid_coord"), # just pass
