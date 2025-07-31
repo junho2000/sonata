@@ -42,6 +42,10 @@ def index_operator(data_dict, index, duplicate=False):
     if "index_valid_keys" not in data_dict:
         data_dict["index_valid_keys"] = [
             "coord",
+            "scales",
+            "rotations",
+            "opacities",
+            "semantics",
             "color",
             "normal",
             "strength",
@@ -1219,6 +1223,25 @@ def default():
             type="Collect",
             keys=("coord", "grid_coord", "color", "inverse"),
             feat_keys=("coord", "color", "normal"),
+        ),
+    ]
+    return Compose(config)
+
+def nuscenes():
+    config = [
+        dict(
+            type="GridSample",
+            grid_size=0.5,
+            hash_type="fnv",
+            mode="train",
+            return_grid_coord=True,
+            return_inverse=True,
+        ),
+        dict(type="ToTensor"),
+        dict(
+            type="Collect",
+            keys=("coord", "inverse", "grid_coord"), # just pass
+            feat_keys=('coord','scales','rotations','opacities','semantics'), # build feat
         ),
     ]
     return Compose(config)
