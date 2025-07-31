@@ -128,23 +128,29 @@ class Update(object):
 
 @TRANSFORMS.register_module()
 class ToTensor(object):
-    def __call__(self, data, cuda=False):
-        data = data.cuda() if cuda else data
+    def __init__(self, cuda=False):
+        self.cuda = cuda
+    
+    def __call__(self, data):
         if isinstance(data, torch.Tensor):
-            return data
+            return data.cuda() if self.cuda else data
         elif isinstance(data, str):
-            # note that str is also a kind of sequence, judgement should before sequence
             return data
         elif isinstance(data, int):
-            return torch.LongTensor([data])
+            tensor = torch.LongTensor([data])
+            return tensor.cuda() if self.cuda else tensor
         elif isinstance(data, float):
-            return torch.FloatTensor([data])
+            tensor = torch.FloatTensor([data])
+            return tensor.cuda() if self.cuda else tensor
         elif isinstance(data, np.ndarray) and np.issubdtype(data.dtype, bool):
-            return torch.from_numpy(data)
+            tensor = torch.from_numpy(data)
+            return tensor.cuda() if self.cuda else tensor
         elif isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.integer):
-            return torch.from_numpy(data).long()
+            tensor = torch.from_numpy(data).long()
+            return tensor.cuda() if self.cuda else tensor
         elif isinstance(data, np.ndarray) and np.issubdtype(data.dtype, np.floating):
-            return torch.from_numpy(data).float()
+            tensor = torch.from_numpy(data).float()
+            return tensor.cuda() if self.cuda else tensor
         elif isinstance(data, Mapping):
             result = {sub_key: self(item) for sub_key, item in data.items()}
             return result
